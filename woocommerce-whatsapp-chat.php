@@ -3,7 +3,7 @@
 Plugin Name: WooCommerce WhatsApp Chat
 Description: Menambahkan tombol chat WhatsApp dengan rotasi admin dan integrasi produk
 Version: 1.0
-Author: Anda
+Author: Adera
 */
 
 if (!defined('ABSPATH')) {
