@@ -1,28 +1,46 @@
-/* Tambahkan ini di CSS tema Anda atau dalam customizer */
+.wc-whatsapp-chat-container {
+    margin: 20px 0;
+    clear: both;
+}
+
+.wc-whatsapp-chat-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 24px;
+    color: white !important;
+    font-size: 16px;
+    font-weight: 600;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.wc-whatsapp-chat-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    color: white !important;
+}
+
+.wc-whatsapp-chat-btn .whatsapp-icon {
+    margin-left: 8px;
+    font-size: 18px;
+}
+
+/* Responsive styles */
 @media (max-width: 768px) {
     .wc-whatsapp-chat-btn {
-        right: 10px !important;
-        bottom: 10px !important;
-        padding: 10px 16px !important;
-        font-size: 14px !important;
-        z-index: 99999 !important;
-    }
-    
-    .wc-whatsapp-chat-btn i {
-        font-size: 18px !important;
-        margin-right: 6px !important;
+        padding: 10px 20px;
+        font-size: 15px;
+        width: 100%;
+        text-align: center;
     }
 }
 
 /* Safari specific adjustments */
 @supports (-webkit-touch-callout: none) {
     .wc-whatsapp-chat-btn {
-        bottom: 80px !important; /* Menghindari toolbar mobile Safari */
-    }
-    
-    @media (max-width: 768px) {
-        .wc-whatsapp-chat-btn {
-            bottom: 70px !important;
-        }
+        padding: 13px 24px;
     }
 }
