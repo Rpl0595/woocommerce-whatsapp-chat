@@ -1,27 +1,38 @@
 <?php
 /*
-Plugin Name: WooCommerce WhatsApp Chat
-Description: Menambahkan tombol chat WhatsApp dengan rotasi admin dan integrasi produk
-Version: 1.0
-Author: Adera
+Plugin Name: WhatsApp Chat for WooCommerce - Enhanced
+Description: Tambahkan tombol chat WhatsApp di halaman produk WooCommerce dengan rotasi admin dan opsi redirect.
+Version: 1.1
+Author: SIP Studio
 */
 
 if (!defined('ABSPATH')) {
     exit;
 }
 
-class WC_WhatsApp_Chat {
+class WC_WhatsApp_Chat_Enhanced {
 
     public function __construct() {
-        // Tambahkan setting admin
+        // Pastikan WooCommerce aktif
+        if (!class_exists('WooCommerce')) {
+            add_action('admin_notices', array($this, 'woocommerce_missing_notice'));
+            return;
+        }
+
+        // Tambahkan tombol WhatsApp
+        add_action('woocommerce_single_product_summary', array($this, 'add_whatsapp_chat_button'), 35);
+        
+        // Tambahkan menu admin
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_init', array($this, 'register_settings'));
         
-        // Tambahkan tombol WhatsApp
-        add_action('wp_footer', array($this, 'add_whatsapp_button'));
-        
-        // Tambahkan shortcode
-        add_shortcode('whatsapp_chat_button', array($this, 'whatsapp_chat_shortcode'));
+        // Load CSS
+        add_action('wp_enqueue_scripts', array($this, 'enqueue_styles'));
+    }
+
+    // Notifikasi jika WooCommerce tidak aktif
+    public function woocommerce_missing_notice() {
+        echo '<div class="error"><p><strong>WhatsApp Chat</strong> membutuhkan plugin <a href="https://wordpress.org/plugins/woocommerce/" target="_blank">WooCommerce</a> untuk berfungsi!</p></div>';
     }
 
     // Tambahkan menu admin
@@ -40,7 +51,6 @@ class WC_WhatsApp_Chat {
         register_setting('wc_whatsapp_chat', 'wc_whatsapp_numbers');
         register_setting('wc_whatsapp_chat', 'wc_whatsapp_enable_redirect');
         register_setting('wc_whatsapp_chat', 'wc_whatsapp_redirect_url');
-        register_setting('wc_whatsapp_chat', 'wc_whatsapp_button_position');
         register_setting('wc_whatsapp_chat', 'wc_whatsapp_button_text');
         register_setting('wc_whatsapp_chat', 'wc_whatsapp_button_color');
     }
@@ -58,7 +68,8 @@ class WC_WhatsApp_Chat {
                     <tr valign="top">
                         <th scope="row">Nomor WhatsApp (pisahkan dengan koma)</th>
                         <td>
-                            <textarea name="wc_whatsapp_numbers" rows="4" cols="50"><?php echo esc_textarea(get_option('wc_whatsapp_numbers')); ?></textarea>
+                            <textarea name="wc_whatsapp_numbers" rows="4" cols="50"><?php echo esc_textarea(get_option('wc_whatsapp_numbers', "6281234567890\n6281111111111\n6282222222222\n6283333333333")); ?></textarea>
+                            <p class="description">Masukkan nomor WhatsApp untuk rotasi, satu nomor per baris</p>
                         </td>
                     </tr>
                     
@@ -73,16 +84,6 @@ class WC_WhatsApp_Chat {
                         <th scope="row">URL Redirect</th>
                         <td>
                             <input type="text" name="wc_whatsapp_redirect_url" value="<?php echo esc_attr(get_option('wc_whatsapp_redirect_url', 'https://sipstudiophotography.com/redirect')); ?>" class="regular-text" />
-                        </td>
-                    </tr>
-                    
-                    <tr valign="top">
-                        <th scope="row">Posisi Tombol</th>
-                        <td>
-                            <select name="wc_whatsapp_button_position">
-                                <option value="right" <?php selected('right', get_option('wc_whatsapp_button_position', 'right')); ?>>Kanan Bawah</option>
-                                <option value="left" <?php selected('left', get_option('wc_whatsapp_button_position')); ?>>Kiri Bawah</option>
-                            </select>
                         </td>
                     </tr>
                     
@@ -107,174 +108,82 @@ class WC_WhatsApp_Chat {
         <?php
     }
 
-    // Generate nomor WhatsApp
-    private function get_whatsapp_number() {
-        $numbers = explode(',', get_option('wc_whatsapp_numbers'));
-        $numbers = array_map('trim', $numbers);
-        $numbers = array_filter($numbers);
-        
-        if (empty($numbers)) {
-            return '';
+    // Load CSS
+    public function enqueue_styles() {
+        if (is_product()) {
+            wp_enqueue_style(
+                'wc-whatsapp-chat',
+                plugins_url('assets/css/whatsapp-chat.css', __FILE__),
+                array(),
+                '1.1'
+            );
         }
-        
-        // Rotasi nomor
-        $count = count($numbers);
-        $index = date('z') % $count; // Gunakan hari dalam tahun untuk rotasi
-        
-        return $numbers[$index];
-    }
-
-    // Generate pesan produk
-    private function get_product_message($product_id = null) {
-        if (!$product_id && is_product()) {
-            $product_id = get_the_ID();
-        }
-        
-        if (!$product_id) {
-            return '';
-        }
-        
-        $product = wc_get_product($product_id);
-        if (!$product) {
-            return '';
-        }
-        
-        $message = "Halo, saya tertarik dengan produk ini:\n\n";
-        $message .= "*" . $product->get_name() . "*\n";
-        
-        if ($product->get_sku()) {
-            $message .= "SKU: " . $product->get_sku() . "\n";
-        }
-        
-        $message .= "Link: " . get_permalink($product_id) . "\n\n";
-        $message .= "Bisa dibantu informasi lebih lanjut?";
-        
-        return rawurlencode($message);
     }
 
     // Tambahkan tombol WhatsApp
-    public function add_whatsapp_button() {
-        if (get_option('wc_whatsapp_enable_redirect')) {
-            $redirect_url = esc_url(get_option('wc_whatsapp_redirect_url', 'https://sipstudiophotography.com/redirect'));
-            $chat_url = $redirect_url;
-        } else {
-            $whatsapp_number = $this->get_whatsapp_number();
-            if (empty($whatsapp_number)) {
-                return;
-            }
-            
-            $message = $this->get_product_message();
-            $chat_url = "https://wa.me/{$whatsapp_number}?text={$message}";
-        }
-        
-        $position = get_option('wc_whatsapp_button_position', 'right');
+    public function add_whatsapp_chat_button() {
+        global $product;
+
+        if (!$product) return;
+
+        $product_id = $product->get_id();
+        $product_name = $product->get_name();
+        $product_sku = $product->get_sku();
+        $product_price = $product->get_price_html();
+        $product_permalink = get_permalink($product_id);
+
+        // Format pesan
+        $message = "Halo Admin,%0ASaya tertarik dengan produk berikut:%0A%0A";
+        $message .= "*" . rawurlencode($product_name) . "*%0A";
+        if ($product_sku) $message .= "SKU: " . rawurlencode($product_sku) . "%0A";
+        $message .= "Harga: " . rawurlencode(strip_tags($product_price)) . "%0A";
+        $message .= "Link: " . rawurlencode($product_permalink) . "%0A%0A";
+        $message .= "Bisa dibantu informasi lebih lanjut?";
+
+        // Dapatkan nomor WhatsApp
+        $numbers = array_filter(array_map('trim', explode("\n", get_option('wc_whatsapp_numbers', "6281234567890\n6281111111111\n6282222222222\n6283333333333"))));
+        $use_redirect = get_option('wc_whatsapp_enable_redirect');
+        $redirect_url = esc_url(get_option('wc_whatsapp_redirect_url', 'https://sipstudiophotography.com/redirect'));
         $button_text = esc_html(get_option('wc_whatsapp_button_text', 'Chat via WhatsApp'));
         $button_color = esc_attr(get_option('wc_whatsapp_button_color', '#25D366'));
-        
-        ?>
-        <style>
-            .wc-whatsapp-chat-btn {
-                position: fixed;
-                <?php echo $position; ?>: 20px;
-                bottom: 20px;
-                z-index: 9999;
-                background-color: <?php echo $button_color; ?>;
-                color: white !important;
-                border-radius: 50px;
-                padding: 12px 20px;
-                text-decoration: none;
-                font-weight: bold;
-                box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-                display: flex;
-                align-items: center;
-                transition: all 0.3s ease;
-            }
-            
-            .wc-whatsapp-chat-btn:hover {
-                transform: translateY(-3px);
-                box-shadow: 0 6px 12px rgba(0,0,0,0.3);
-            }
-            
-            .wc-whatsapp-chat-btn i {
-                margin-right: 8px;
-                font-size: 20px;
-            }
-            
-            @media (max-width: 768px) {
-                .wc-whatsapp-chat-btn {
-                    <?php echo $position; ?>: 10px;
-                    bottom: 10px;
-                    padding: 10px 16px;
-                    font-size: 14px;
-                }
-            }
-        </style>
-        
-        <a href="<?php echo esc_url($chat_url); ?>" target="_blank" class="wc-whatsapp-chat-btn">
-            <i class="fab fa-whatsapp"></i> <?php echo $button_text; ?>
-        </a>
-        
-        <!-- Load Font Awesome for WhatsApp icon -->
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
-        <?php
-    }
 
-    // Shortcode untuk tombol WhatsApp
-    public function whataspp_chat_shortcode($atts) {
-        $atts = shortcode_atts(array(
-            'product_id' => null,
-            'text' => get_option('wc_whatsapp_button_text', 'Chat via WhatsApp'),
-            'color' => get_option('wc_whatsapp_button_color', '#25D366')
-        ), $atts);
-        
-        if (get_option('wc_whatsapp_enable_redirect')) {
-            $redirect_url = esc_url(get_option('wc_whatsapp_redirect_url', 'https://sipstudiophotography.com/redirect'));
-            $chat_url = $redirect_url;
-        } else {
-            $whatsapp_number = $this->get_whatsapp_number();
-            if (empty($whatsapp_number)) {
-                return '';
-            }
-            
-            $message = $this->get_product_message($atts['product_id']);
-            $chat_url = "https://wa.me/{$whatsapp_number}?text={$message}";
+        if (empty($numbers) {
+            $numbers = ['6281234567890']; // Fallback number
         }
-        
-        ob_start();
+
         ?>
-        <style>
-            .wc-whatsapp-chat-shortcode {
-                display: inline-block;
-                background-color: <?php echo esc_attr($atts['color']); ?>;
-                color: white !important;
-                border-radius: 50px;
-                padding: 12px 20px;
-                text-decoration: none;
-                font-weight: bold;
-                box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-                transition: all 0.3s ease;
-                margin: 10px 0;
-            }
-            
-            .wc-whatsapp-chat-shortcode:hover {
-                transform: translateY(-3px);
-                box-shadow: 0 6px 12px rgba(0,0,0,0.3);
-            }
-            
-            .wc-whatsapp-chat-shortcode i {
-                margin-right: 8px;
-            }
-        </style>
-        
-        <a href="<?php echo esc_url($chat_url); ?>" target="_blank" class="wc-whatsapp-chat-shortcode">
-            <i class="fab fa-whatsapp"></i> <?php echo esc_html($atts['text']); ?>
-        </a>
-        
-        <!-- Load Font Awesome for WhatsApp icon -->
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+        <div id="wc-whatsapp-chat-btn" class="wc-whatsapp-chat-container">
+            <script>
+            (function() {
+                const numbers = <?php echo json_encode($numbers); ?>;
+                const msg = "<?php echo $message; ?>";
+                const useRedirect = <?php echo $use_redirect ? 'true' : 'false'; ?>;
+                const redirectUrl = "<?php echo $redirect_url; ?>";
+                const btnColor = "<?php echo $button_color; ?>";
+                const btnText = "<?php echo $button_text; ?>";
+
+                // Pilih nomor secara acak
+                const index = Math.floor(Math.random() * numbers.length);
+                const selected = numbers[index];
+
+                const chatUrl = useRedirect
+                    ? redirectUrl
+                    : `https://wa.me/${selected}?text=${msg}`;
+
+                const btn = document.createElement('a');
+                btn.href = chatUrl;
+                btn.className = 'wc-whatsapp-chat-btn';
+                btn.target = '_blank';
+                btn.rel = 'noopener noreferrer';
+                btn.innerHTML = `${btnText} <span class="whatsapp-icon">📲</span>`;
+                btn.style.backgroundColor = btnColor;
+
+                document.getElementById('wc-whatsapp-chat-btn').appendChild(btn);
+            })();
+            </script>
+        </div>
         <?php
-        return ob_get_clean();
     }
 }
 
-new WC_WhatsApp_Chat();
+new WC_WhatsApp_Chat_Enhanced();
