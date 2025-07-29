@@ -1,0 +1,28 @@
+.wa-chat-wrapper {
+    margin-top: 20px;
+}
+
+.wa-chat-button {
+    display: inline-block;
+    background-color: #25D366;
+    color: white;
+    padding: 12px 20px;
+    font-size: 16px;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: background-color 0.3s ease;
+}
+
+.wa-chat-button:hover {
+    background-color: #1ebe54;
+}
+
+/* Responsif untuk layar kecil */
+@media (max-width: 480px) {
+    .wa-chat-button {
+        display: block;
+        width: 100%;
+        font-size: 18px;
+        text-align: center;
+    }
+}
